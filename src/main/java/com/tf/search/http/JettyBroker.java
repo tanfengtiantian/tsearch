@@ -1,5 +1,6 @@
 package com.tf.search.http;
 
+import com.tf.search.engine.Engine;
 import org.eclipse.jetty.server.Handler;
 import org.eclipse.jetty.server.NetworkConnector;
 import org.eclipse.jetty.server.Server;
@@ -20,8 +21,8 @@ public class JettyBroker {
 
     private int port;
 
-    public void init(Properties props) {
-        JettyProcessor jettyProcessor = new JettyProcessor();
+    public void init(Engine engine, Properties props) {
+        JettyProcessor jettyProcessor = new JettyProcessor(engine);
         this.port = Integer.valueOf(props.getProperty("serverPort", "8888"));
         server = new Server(createThreadPool());
         server.addConnector(createConnector(port));
@@ -68,7 +69,7 @@ public class JettyBroker {
 
         // 数据接口
         ServletContextHandler servletHandler = new ServletContextHandler();
-        servletHandler.addServlet(new ServletHolder(jettyProcessor),"/rest");
+        servletHandler.addServlet(new ServletHolder(jettyProcessor),"/_search");
 
         HandlerCollection handlerCollection = new HandlerCollection();
         handlerCollection.setHandlers(new Handler[] {contextHandler, servletHandler});

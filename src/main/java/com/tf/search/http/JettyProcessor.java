@@ -1,5 +1,9 @@
 package com.tf.search.http;
 
+import com.tf.search.engine.Engine;
+import com.tf.search.types.SearchRequest;
+import com.tf.search.types.SearchResponse;
+
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -10,6 +14,11 @@ import java.io.PrintWriter;
 
 public class JettyProcessor extends HttpServlet {
 
+    private final Engine engine;
+
+    public JettyProcessor(Engine engine) {
+        this.engine = engine;
+    }
 
     @Override
     public void init(ServletConfig config) throws ServletException {
@@ -18,9 +27,18 @@ public class JettyProcessor extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        String query =req.getParameter("query");
+
+        SearchResponse output = engine.Search(new SearchRequest(query));
+        //SearchResponse output = searcher.Search(new SearchRequest("中国"));
+
         PrintWriter writer = resp.getWriter();
 
-        writer.print("\n** -------------------logger------------------ **\n");
+        writer.print("\n** -------------------output.NumDocs="+output.NumDocs+"------------------ **\n");
+        for (int i = 0; i < output.NumDocs; i++) {
+            writer.print("\n** -------------------output.DocId="+output.Docs[i].DocId+" BM25="+output.Docs[i].Scores+"------------------ **\n");
+            System.out.println("output.DocId=" + output.Docs[i].DocId +" BM25="+output.Docs[i].Scores);
+        }
 
     }
 

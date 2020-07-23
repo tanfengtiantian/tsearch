@@ -15,9 +15,6 @@
 		<timestamp>${maven.build.timestamp}</timestamp>
         <maven.build.timestamp.format>yyyyMMddHHmm</maven.build.timestamp.format>
 		<slf4j.version>1.7.5</slf4j.version>
-		<jackson-mapper-asl.version>1.9.9</jackson-mapper-asl.version>
-		<zkclient.version>2.1.2</zkclient.version>
-		<protobuf-java.version>2.5.0</protobuf-java.version>
 		<jetty.version>9.4.19.v20190610</jetty.version>
 		<commons-cli.version>1.2</commons-cli.version>
 		<fastjson.version>1.2.61</fastjson.version>
@@ -27,28 +24,29 @@
 	
 	<dependencies>
 		<dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-api</artifactId>
-            <version>${slf4j.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-log4j12</artifactId>
-            <version>${slf4j.version}</version>
-            <optional>true</optional>
-        </dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-api</artifactId>
+			<version>${slf4j.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-log4j12</artifactId>
+			<version>${slf4j.version}</version>
+			<optional>true</optional>
+		</dependency>
 		<dependency>
 			<groupId>log4j</groupId>
 			<artifactId>log4j</artifactId>
 			<version>1.2.14</version>
 		</dependency>
 
+		<!--
 		<dependency>
 			<groupId>com.sangupta</groupId>
 			<artifactId>murmur</artifactId>
 			<version>1.0.0</version>
 		</dependency>
-
+		-->
 		<dependency>
 			<groupId>com.hankcs</groupId>
 			<artifactId>hanlp</artifactId>
