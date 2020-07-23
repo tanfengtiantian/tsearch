@@ -30,7 +30,6 @@ public class JettyProcessor extends HttpServlet {
         String query =req.getParameter("query");
 
         SearchResponse output = engine.Search(new SearchRequest(query));
-        //SearchResponse output = searcher.Search(new SearchRequest("中国"));
 
         PrintWriter writer = resp.getWriter();
 

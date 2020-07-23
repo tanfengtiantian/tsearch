@@ -146,6 +146,10 @@ public class Engine {
         numDocumentsStored.getAndAdd(numIndexingRequests.get());
     }
 
+    public void IndexMapping( ){
+
+    }
+
 
     public void IndexDocument(long docId, DocumentIndexData data, boolean forceUpdate) {
         // 分词器通道 ->	NumSegmenterThreads 分词线程数   segmenterWorker 工作线程
