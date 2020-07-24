@@ -50,7 +50,7 @@ public class RankerAddDocRequest implements Runnable , Closeable {
         while (isRuntime) {
             try {
                 RankerAddEntry request = works.take();
-                engine.rankers.get(shard).AddDoc(request.docId, request.fields);
+                engine.ranManagers.get(shard).get(request.IndexName).AddDoc(request.docId, request.fields);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }

@@ -1,11 +1,14 @@
 package com.tf.search.core;
 
-import com.tf.search.types.DocumentIndex;
-import com.tf.search.types.IndexedDocument;
-import com.tf.search.types.IndexerInitOptions;
+import com.tf.search.types.*;
+
 import java.util.*;
 
 public class Indexer {
+
+    public String Name;
+
+    public Map<String, SimpleFieldInfo> Fields = new HashMap<>();
 
     public TableLock tableLock = new TableLock();
 

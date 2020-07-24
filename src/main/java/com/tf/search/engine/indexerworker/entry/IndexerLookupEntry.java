@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 public class IndexerLookupEntry {
+    public String IndexName;
     public Boolean countDocsOnly;
     public List<String> tokens;
     public List<String> labels;

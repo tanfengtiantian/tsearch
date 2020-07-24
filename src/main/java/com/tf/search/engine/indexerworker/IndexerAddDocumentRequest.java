@@ -47,7 +47,16 @@ public class IndexerAddDocumentRequest implements Runnable , Closeable {
         while (isRuntime) {
             try {
                 IndexerAddEntry request = works.take();
-                engine.indexers.get(shard).AddDocumentToCache(request.document, request.forceUpdate);
+                // 强制保存
+                if(request.document==null && request.indexName ==null) {
+                    engine.idxManagers.get(shard).values().forEach(v->{
+                        v.AddDocumentToCache(request.document, request.forceUpdate);
+                    });
+                }else{
+                    engine.idxManagers.get(shard).get(request.indexName).AddDocumentToCache(request.document, request.forceUpdate);
+
+                }
+                //engine.indexers.get(shard).AddDocumentToCache(request.document, request.forceUpdate);
                 // 计数器新增
                 if (request.document != null) {
                     engine.numTokenIndexAdded.getAndAdd(request.document.Keywords.size());

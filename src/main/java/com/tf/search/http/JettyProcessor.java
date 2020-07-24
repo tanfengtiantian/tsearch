@@ -27,9 +27,10 @@ public class JettyProcessor extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        String query =req.getParameter("query");
+        String index =req.getParameter("index");
+        String q =req.getParameter("q");
 
-        SearchResponse output = engine.Search(new SearchRequest(query));
+        SearchResponse output = engine.Search(new SearchRequest(index,q));
 
         PrintWriter writer = resp.getWriter();
 

@@ -19,7 +19,6 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class SegmenterRequest {
-
     /**
      * 分词处理器
      */
@@ -133,7 +132,7 @@ public class SegmenterRequest {
                     });
 
                     // 构建索引
-                    IndexerAddEntry indexerRequest = new IndexerAddEntry(
+                    IndexerAddEntry indexerRequest = new IndexerAddEntry(request.IndexName,
                             new DocumentIndex(request.docId, (float) numTokens,new ArrayList<>(tokensMap.size()))
                             ,request.forceUpdate
                     );
@@ -146,6 +145,7 @@ public class SegmenterRequest {
                                     v
                             )
                     ));
+
                     // 加入索引通道
                     engine.indexerAddDocChannels.get(shard).addWork(indexerRequest);
                     /*
@@ -160,6 +160,7 @@ public class SegmenterRequest {
                     */
                     // 加入排序通道
                     RankerAddEntry rankerRequest = new RankerAddEntry();
+                    rankerRequest.IndexName = request.IndexName;
                     rankerRequest.docId = request.docId;
                     rankerRequest.fields = request.data.Fields;
                     engine.rankerAddDocChannels.get(shard).addWork(rankerRequest);

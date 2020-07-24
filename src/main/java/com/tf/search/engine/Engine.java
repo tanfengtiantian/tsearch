@@ -15,12 +15,8 @@ import com.tf.search.engine.segment.SegmenterRequest;
 import com.tf.search.engine.segment.StopTokens;
 import com.tf.search.engine.segment.entry.SegmenterEntry;
 import com.tf.search.types.*;
-
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
-
 /**
  * 检索引擎
  */
@@ -45,9 +41,13 @@ public class Engine {
 
     private volatile boolean initialized;
 
-    public List<Indexer> indexers = new ArrayList<>();
+    public List<Map<String,Indexer>> idxManagers = new ArrayList<>();
 
-    public List<Ranker> rankers = new ArrayList<>();
+    public Map<String, Map<String,SimpleFieldInfo>> indexFields = new HashMap<>();
+
+    public Map<String,AtomicLong> indexDocids = new HashMap<>();
+
+    public List<Map<String,Ranker>> ranManagers = new ArrayList<>();
 
     public Segmenter segmenter = new Segmenter();
 
@@ -86,11 +86,14 @@ public class Engine {
         // 初始化索引器和排序器
         for (int shard = 0; shard < options.NumShards; shard++) {
 
-            indexers.add(new Indexer());
-            indexers.get(shard).Init(options.IndexerInitOptions);
+            idxManagers.add(new HashMap<>());
 
-            rankers.add(new Ranker());
-            rankers.get(shard).Init(options.IndexerInitOptions);
+            //indexers.add(new Indexer());
+            //indexers.get(shard).Init(options.IndexerInitOptions);
+
+            ranManagers.add(new HashMap<>());
+            //rankers.add(new Ranker());
+            //rankers.get(shard).Init(options.IndexerInitOptions);
         }
 
         // 初始化分词器通道
@@ -146,24 +149,81 @@ public class Engine {
         numDocumentsStored.getAndAdd(numIndexingRequests.get());
     }
 
-    public void IndexMapping( ){
+    public boolean IndexMapping(String IndexName, List<SimpleFieldInfo> Fields) {
+        boolean ok = checkIndexMap(IndexName);
+        if(!ok) return false;
 
+        //FieldInfo
+        Map<String,SimpleFieldInfo> map = new HashMap<>();
+        Fields.forEach(f-> map.put(f.FieldName,f));
+        indexFields.put(IndexName,map);
+
+        //docid
+        indexDocids.put(IndexName,new AtomicLong(1));
+
+        // 初始化
+        for (int shard = 0; shard < initOptions.NumShards; shard++) {
+            //索引
+            Indexer indexer = new Indexer();
+            indexer.Name = IndexName;
+            indexer.Init(initOptions.IndexerInitOptions);
+            idxManagers.get(shard).put(IndexName,indexer);
+            Fields.forEach(f-> indexer.Fields.put(f.FieldName,f));
+
+            //排序
+            Ranker ranker = new Ranker();
+            ranker.Init(initOptions.IndexerInitOptions);
+            ranManagers.get(shard).put(IndexName,ranker);
+        }
+        return true;
     }
 
+    public void IndexInsertOrUpdate(String indexName, Map<String,Object> document) {
+        Map<String,SimpleFieldInfo> fieldInfos = indexFields.get(indexName);
+        AtomicLong docId = indexDocids.get(indexName);
+        document.forEach((field,value) -> {
+            SimpleFieldInfo info = fieldInfos.get(field);
+            if(info != null) {
+                switch (info.FieldType){
+                    case IDX_TYPE_STRING:
+                       //字符型索引[全词匹配] 不处理
+                        break;
+                    case IDX_TYPE_STRING_SEG:
+                        //字符型索引[切词匹配，全文索引,hash存储倒排]
+                        IndexDocument(indexName, docId.getAndIncrement(), new DocumentIndexData(String.valueOf(value)),false);
+                        break;
+                    case IDX_TYPE_STRING_LIST:
+                        //字符型索引[列表类型，分号切词，直接切分,hash存储倒排]
+                        break;
+                    case IDX_TYPE_STRING_SINGLE:
+                        //字符型索引[单字切词] 不处理
+                        break;
+                    case IDX_TYPE_NUMBER:
+                        //数字型索引，只支持整数，数字型索引只建立正排 不处理
+                    case IDX_TYPE_DATE:
+                        //日期型索引 '2015-11-11 00:11:12'，日期型只建立正排，转成时间戳存储 不处理
+                        return;
+                }
 
-    public void IndexDocument(long docId, DocumentIndexData data, boolean forceUpdate) {
+            }
+        });
+    }
+
+    public void IndexDocument(String indexName, Long docId, DocumentIndexData data, boolean forceUpdate) {
+        boolean ok = checkIndexMap(indexName);
+        if(ok) return;
+
         // 分词器通道 ->	NumSegmenterThreads 分词线程数   segmenterWorker 工作线程
         // 构建索引器和排序器
-        internalIndexDocument(docId, data, forceUpdate);
+        internalIndexDocument(indexName,docId, data, forceUpdate);
         int hash =  (String.valueOf(docId).hashCode() & Integer.MAX_VALUE) % initOptions.PersistentStorageShards;
         if (initOptions.UsePersistentStorage && docId != 0) {
             //写入文件
             //engine.persistentStorageIndexDocumentChannels[hash] <- persistentStorageIndexDocumentRequest{docId: docId, data: data}
         }
-
     }
 
-    private void internalIndexDocument(long docId, DocumentIndexData data, boolean forceUpdate) {
+    private void internalIndexDocument(String indexName, Long docId, DocumentIndexData data, boolean forceUpdate) {
         if (!initialized) {
             System.err.println("必须先初始化引擎");
             return;
@@ -178,7 +238,7 @@ public class Engine {
 
         int hash = (docId + data.Content).hashCode() & Integer.MAX_VALUE;
         //注册任务
-        segmenterChannel.registerWork(new SegmenterEntry(docId,hash,data,forceUpdate));
+        segmenterChannel.registerWork(new SegmenterEntry(indexName,docId,hash,data,forceUpdate));
     }
 
     // 阻塞等待直到所有索引添加完毕
@@ -195,7 +255,8 @@ public class Engine {
         }
 
         // 强制更新，保证其为最后的请求
-        IndexDocument(0, new DocumentIndexData(""), true);
+        internalIndexDocument("",0L, new DocumentIndexData(""), true);
+
         for(;;) {
             // 让出当前cpu时间片给其他线程
             Thread.currentThread().yield();
@@ -205,8 +266,12 @@ public class Engine {
             }
         }
         System.out.println("indexer cache force");
-        indexers.get(0).tableLock.table.forEach((k,v)-> System.out.println("shard0--"+k+"--"+v.docIds));
-        indexers.get(1).tableLock.table.forEach((k,v)-> System.out.println("shard1--"+k+"--"+v.docIds));
+
+        idxManagers.get(0).values().forEach(index-> index.tableLock.table.forEach((k, v)-> System.out.println("shard0--"+k+"--"+v.docIds)));
+        idxManagers.get(1).values().forEach(index-> index.tableLock.table.forEach((k, v)-> System.out.println("shard0--"+k+"--"+v.docIds)));
+
+        //indexers.get(0).tableLock.table.forEach((k,v)-> System.out.println("shard0--"+k+"--"+v.docIds));
+        //indexers.get(1).tableLock.table.forEach((k,v)-> System.out.println("shard1--"+k+"--"+v.docIds));
     }
 
     // 查找满足搜索条件的文档，此函数线程安全
@@ -249,6 +314,7 @@ public class Engine {
         //rankerReturnChannel := make(chan rankerReturnRequest, engine.initOptions.NumShards)
         // 生成查找请求
         IndexerLookupEntry lookupRequest = new IndexerLookupEntry();
+        lookupRequest.IndexName = request.IndexName;
         lookupRequest.countDocsOnly = request.CountDocsOnly;
         lookupRequest.tokens = tokens;
         lookupRequest.labels = request.Labels;
@@ -308,6 +374,13 @@ public class Engine {
         output.Timeout = isTimeout;
 
         return output;
+    }
+
+    private boolean checkIndexMap(String indexName) {
+        if(indexFields.containsKey(indexName)){
+            return false;
+        }
+        return true;
     }
 
     /**

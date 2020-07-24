@@ -1,67 +1,60 @@
 package com.tf.search.examples;
 
+import com.tf.search.engine.Engine;
 import com.tf.search.engine.segment.SegmenterRequest;
 import com.tf.search.engine.segment.entry.SegmenterEntry;
+import com.tf.search.http.JettyBroker;
+import com.tf.search.types.EngineInitOptions;
+import com.tf.search.types.IdxType;
+import com.tf.search.types.SimpleFieldInfo;
 
 import java.util.*;
 
 public class example2 {
+    private static Engine engine = new Engine();
+    private static final String indexName = "xinwen";
+    private static final String fields = "Content";
     public static void main(String[] args) {
-        /*
-        Map<String,String> map = new HashMap<>();
-        map.put("1","11");
-        map.put("2","22");
-        map.put("3","33");
 
-        String d1 = map.get("1");
-        String d2 = map.get("2");
-        String d3 = map.get("3");
-        String d4 = map.get("4");
+        EngineInitOptions options = new EngineInitOptions();
+        options.SegmenterDictionaries = "/Users/zxcs/Desktop/tf/HanLP-1.x/data/dictionary/CoreNatureDictionary.mini.txt";
+        options.StopTokenFile = "/Users/zxcs/Desktop/tf/HanLP-1.x/data/dictionary/stopwords.txt";
 
+        //初始化
+        engine.Init(options);
 
+        //构造Mapping
+        engine.IndexMapping(indexName,IndexMapping());
+        //insert Document
+        engine.IndexInsertOrUpdate(indexName,IndexDocument(fields,"此次百度收购将成中国互联网最大并购"));
+        engine.IndexInsertOrUpdate(indexName,IndexDocument(fields,"百度宣布拟全资收购91无线业务"));
+        engine.IndexInsertOrUpdate(indexName,IndexDocument(fields,"百度是中国最大的搜索引擎"));
 
-        int indexPointer = 10;
-        for (; indexPointer >= 0; indexPointer--) {
-            System.out.println(indexPointer);
-        }
-
-        List<String> list = new ArrayList<>();
-        list.add("1");
-        list.add("2");
-        list.add("3");
-        System.out.println(list);
-
-        list.remove(1);
-        System.out.println(list);
-        list.add(1,"4");
-        System.out.println(list);
+        //刷新索引 强制保存
+        engine.FlushIndex();
 
 
+        JettyBroker jettyBroker = new JettyBroker();
+        jettyBroker.init(engine,new Properties());
 
-        List<SegmenterEntry> list = new ArrayList<>();
-        list.add(new SegmenterEntry(1,1,null,false));
-        list.add(new SegmenterEntry(2,2,null,false));
-        list.add(new SegmenterEntry(3,3,null,false));
-        list.add(new SegmenterEntry(4,4,null,false));
+        jettyBroker.start();
 
 
-        list.sort(Comparator.comparing(o -> o.docId));
-        System.out.println(list);
-        list.sort((o1,o2)->o2.docId.compareTo(o1.docId));
-        System.out.println(list);
+    }
 
-         */
-
-        System.out.println(Math.log(2));
-
-        System.out.println(Math.log(4));
-
-        System.out.println(Math.log(8));
-
-        System.out.println(Math.log(10));
-
-        System.out.println(Math.log(16));
+    private static List<SimpleFieldInfo> IndexMapping() {
+        List<SimpleFieldInfo> Fields = new ArrayList<>();
+        SimpleFieldInfo content = new SimpleFieldInfo();
+        content.FieldType = IdxType.IDX_TYPE_STRING_SEG;
+        content.FieldName = fields;
+        Fields.add(content);
+        return Fields;
+    }
 
 
+    private static Map<String,Object> IndexDocument(String field, String content){
+        Map<String,Object> document = new HashMap<>();
+        document.put(field,content);
+        return document;
     }
 }

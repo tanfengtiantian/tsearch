@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Map;
 
 public class SearchRequest {
+    //索引名称
+    public String IndexName;
 
     // 搜索的短语（必须是UTF-8格式），会被分词
     // 当值为空字符串时关键词会从下面的Tokens读入
@@ -32,7 +34,8 @@ public class SearchRequest {
     // 对返回文档很多的情况打开此选项可以有效节省时间
     public boolean Orderless;
 
-    public SearchRequest(String text) {
+    public SearchRequest(String IndexName, String text) {
+        this.IndexName = IndexName;
         this.Text = text;
     }
 

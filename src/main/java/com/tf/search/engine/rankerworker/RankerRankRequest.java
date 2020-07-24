@@ -53,7 +53,7 @@ public class RankerRankRequest implements Runnable , Closeable {
                     request.options.MaxOutputs += request.options.OutputOffset;
                 }
                 request.options.OutputOffset = 0;
-                RankerReturnEntry entry= engine.rankers.get(shard).Rank(request.docs, request.options, request.countDocsOnly);
+                RankerReturnEntry entry= engine.ranManagers.get(shard).get(request.IndexName).Rank(request.docs, request.options, request.countDocsOnly);
                 //排序end
                 request.rankerReturnRequest.addRankerReturn(entry);
 

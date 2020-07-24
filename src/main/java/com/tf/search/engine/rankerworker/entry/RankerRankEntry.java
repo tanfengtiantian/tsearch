@@ -7,6 +7,7 @@ import com.tf.search.types.RankOptions;
 import java.util.List;
 
 public class RankerRankEntry {
+    public String IndexName;
     public List<IndexedDocument> docs;
     public RankOptions options;
     public RankerReturnRequest rankerReturnRequest;

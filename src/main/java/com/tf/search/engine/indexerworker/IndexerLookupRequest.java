@@ -57,9 +57,9 @@ public class IndexerLookupRequest implements Runnable , Closeable {
 
                 Indexer.SearchResult result;
                 if (request.docIds == null) {
-                    result = engine.indexers.get(shard).Lookup(request.tokens, request.labels, null, request.countDocsOnly);
+                    result = engine.idxManagers.get(shard).get(request.IndexName).Lookup(request.tokens, request.labels, null, request.countDocsOnly);
                 } else {
-                    result = engine.indexers.get(shard).Lookup(request.tokens, request.labels, request.docIds, request.countDocsOnly);
+                    result = engine.idxManagers.get(shard).get(request.IndexName).Lookup(request.tokens, request.labels, request.docIds, request.countDocsOnly);
                 }
                 if(result == null) {
                     request.rankerReturnRequest.addRankerReturn(new RankerReturnEntry());
@@ -111,6 +111,7 @@ public class IndexerLookupRequest implements Runnable , Closeable {
                  */
                 //
                 RankerRankEntry rankEntry = new RankerRankEntry();
+                rankEntry.IndexName = request.IndexName;
                 rankEntry.countDocsOnly = request.countDocsOnly;
                 rankEntry.docs = docs;
                 rankEntry.options = request.options == null ? RankOptions.defaultDefaultRankOptions() : request.options;
