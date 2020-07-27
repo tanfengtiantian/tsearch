@@ -1,7 +1,6 @@
 package com.tf.search.core;
 
 import com.tf.search.types.*;
-
 import java.util.*;
 
 public class Indexer {
@@ -10,13 +9,13 @@ public class Indexer {
 
     public Map<String, SimpleFieldInfo> Fields = new HashMap<>();
 
-    public TableLock tableLock = new TableLock();
+    public Map<String, TableLock> f_tableLock = new HashMap<>();
 
-    public AddCacheLock addCacheLock = new AddCacheLock();
+    public Map<String, AddCacheLock> f_addCacheLock = new HashMap<>();
 
-    public RemoveCacheLock removeCacheLock = new RemoveCacheLock();
+    public Map<String, RemoveCacheLock> f_removeCacheLock = new HashMap<>();
 
-    public IndexerInitOptions initOptions;
+    private IndexerInitOptions initOptions;
 
     private volatile boolean initialized;
 
@@ -37,10 +36,8 @@ public class Indexer {
         options.Init();
         initOptions = options;
         initialized = true;
-        tableLock.table = new HashMap<>();
-        tableLock.docsState = new HashMap<>();
-        addCacheLock.addCache = new DocumentIndex[initOptions.DocCacheSize];
-        removeCacheLock.removeCache = new int[initOptions.DocCacheSize * 2];
+
+        //removeCacheLock.removeCache = new int[initOptions.DocCacheSize * 2];
         docTokenLengths = new HashMap<>();
     }
 
@@ -68,7 +65,7 @@ public class Indexer {
         public List<Indexer[]> locations;   // IndexType == LocationsIndex
     }
 
-    public void AddDocumentToCache(DocumentIndex document, boolean forceUpdate) {
+    public void AddDocumentToCache(SimpleFieldInfo field, DocumentIndex document, boolean forceUpdate) {
         if (!initialized) {
             System.err.println("索引器尚未初始化");
             return;
@@ -76,54 +73,70 @@ public class Indexer {
 
         if (document != null) {
             synchronized (this){
+                AddCacheLock addCacheLock = f_addCacheLock.get(field.FieldName);
+                if(addCacheLock == null){
+                    addCacheLock = new AddCacheLock();
+                    addCacheLock.addCache = new DocumentIndex[initOptions.DocCacheSize];
+                    f_addCacheLock.put(field.FieldName,addCacheLock);
+                }
                 addCacheLock.addCache[addCacheLock.addCachePointer] =  document;
                 addCacheLock.addCachePointer++;
             }
         }
-        if (addCacheLock.addCachePointer >= initOptions.DocCacheSize || forceUpdate) {
-            int position = 0;
-            synchronized (this){
-                for (int i = 0; i < addCacheLock.addCachePointer; i++) {
-                    DocumentIndex docIndex = addCacheLock.addCache[i];
-                    Integer state = tableLock.docsState.get(docIndex.DocId);
-                    if(state != null && state <= 1) {
-                        // ok && docState == 0 表示存在于索引中，需先删除再添加
-                        // ok && docState == 1 表示不一定存在于索引中，等待删除，需先删除再添加
-                        if(position != i) {
-
+        if (forceUpdate) {
+            synchronized (this) {
+                f_addCacheLock.forEach((f,addCacheLock)-> {
+                    int position = 0;
+                    for (int i = 0; i < addCacheLock.addCachePointer; i++) {
+                        DocumentIndex docIndex = addCacheLock.addCache[i];
+                        TableLock tableLock = f_tableLock.get(f);
+                        if(tableLock == null) {
+                            tableLock = new TableLock();
+                            tableLock.table = new HashMap<>();
+                            tableLock.docsState = new HashMap<>();
+                            f_tableLock.put(f,tableLock);
                         }
-                        if (state == 0) {
+                        Integer state = tableLock.docsState.get(docIndex.DocId);
+                        if(state != null && state <= 1) {
+                            // ok && docState == 0 表示存在于索引中，需先删除再添加
+                            // ok && docState == 1 表示不一定存在于索引中，等待删除，需先删除再添加
+                            if(position != i) {
 
+                            }
+                            if (state == 0) {
+
+                            }
+
+                            position++;
+                        }else if (state == null) {
+                            tableLock.docsState.put(docIndex.DocId,2);
                         }
-
-                        position++;
-                    }else if (state == null) {
-                        tableLock.docsState.put(docIndex.DocId,2);
                     }
+                    if (RemoveDocumentToCache(0, forceUpdate)) {
+                        // 只有当存在于索引表中的文档已被删除，其才可以重新加入到索引表中
+                        position = 0;
+                    }
+                    // [0:2] 切片返回数组
+                    DocumentIndex[] addCachedDocuments =  Arrays.copyOfRange(addCacheLock.addCache,position,addCacheLock.addCachePointer);
+                    addCacheLock.addCachePointer = position;
+                    Arrays.sort(addCachedDocuments,Comparator.comparing(o -> o.DocId));
+                    AddDocuments(f,addCachedDocuments);
 
-                }
+                });
             }
-            if (RemoveDocumentToCache(0, forceUpdate)) {
-                // 只有当存在于索引表中的文档已被删除，其才可以重新加入到索引表中
-                position = 0;
-            }
-            // [0:2] 切片返回数组
-            DocumentIndex[] addCachedDocuments =  Arrays.copyOfRange(addCacheLock.addCache,position,addCacheLock.addCachePointer);
-            addCacheLock.addCachePointer = position;
-            Arrays.sort(addCachedDocuments,Comparator.comparing(o -> o.DocId));
-            AddDocuments(addCachedDocuments);
         }
 
 
     }
 
-    private void AddDocuments(DocumentIndex[] documents) {
+    private void AddDocuments(String field, DocumentIndex[] documents) {
         if (!initialized) {
             System.err.println("索引器尚未初始化");
             return;
         }
 
         synchronized (this){
+            TableLock tableLock = f_tableLock.get(field);
             Map<String ,Integer> indexPointers = new HashMap<>(tableLock.table.size());
             // DocId 递增顺序遍历插入文档保证索引移动次数最少
             for (int i = 0; i < documents.length; i++) {
@@ -259,7 +272,7 @@ public class Indexer {
 
     // 查找包含全部搜索键(AND操作)的文档
     // 当docIds不为nil时仅从docIds指定的文档中查找
-    public SearchResult Lookup(List<String> tokens, List<String> labels, Map<Long, Boolean> docIds, boolean countDocsOnly) {
+    public SearchResult Lookup(SimpleFieldInfo field, List<String> tokens, List<String> labels, Map<Long, Boolean> docIds, boolean countDocsOnly) {
 
         if (!initialized) {
             System.err.println("索引器尚未初始化");
@@ -280,6 +293,10 @@ public class Indexer {
         // 返回参数
         SearchResult result = new SearchResult();
         result.numDocs = 0;
+        TableLock tableLock = f_tableLock.get(field.FieldName);
+
+        if(tableLock == null)
+            return null;
 
         synchronized (this) {
             KeywordIndices[] table = new KeywordIndices[keywords.size()];

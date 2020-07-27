@@ -1,8 +1,6 @@
 package com.tf.search.examples;
 
 import com.tf.search.engine.Engine;
-import com.tf.search.engine.segment.SegmenterRequest;
-import com.tf.search.engine.segment.entry.SegmenterEntry;
 import com.tf.search.http.JettyBroker;
 import com.tf.search.types.EngineInitOptions;
 import com.tf.search.types.IdxType;
@@ -44,9 +42,7 @@ public class example2 {
 
     private static List<SimpleFieldInfo> IndexMapping() {
         List<SimpleFieldInfo> Fields = new ArrayList<>();
-        SimpleFieldInfo content = new SimpleFieldInfo();
-        content.FieldType = IdxType.IDX_TYPE_STRING_SEG;
-        content.FieldName = fields;
+        SimpleFieldInfo content = new SimpleFieldInfo(fields,IdxType.IDX_TYPE_STRING_SEG);
         Fields.add(content);
         return Fields;
     }

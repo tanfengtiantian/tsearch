@@ -2,13 +2,10 @@ package com.tf.search.engine.indexerworker;
 
 import com.tf.search.core.Indexer;
 import com.tf.search.engine.Engine;
-import com.tf.search.engine.RankerReturnRequest;
 import com.tf.search.engine.indexerworker.entry.IndexerLookupEntry;
 import com.tf.search.engine.rankerworker.entry.RankerRankEntry;
 import com.tf.search.engine.rankerworker.entry.RankerReturnEntry;
-import com.tf.search.types.IndexedDocument;
-import com.tf.search.types.RankOptions;
-import com.tf.search.types.ScoredDocument;
+import com.tf.search.types.*;
 import com.tf.search.utils.Utils;
 import java.io.Closeable;
 import java.io.IOException;
@@ -37,7 +34,6 @@ public class IndexerLookupRequest implements Runnable , Closeable {
         Utils.newThread("IndexerLookup-shard-" + shard, this, true).start();
     }
 
-
     public boolean addLookupWork(IndexerLookupEntry entry) {
         try {
             works.put(entry);
@@ -54,13 +50,36 @@ public class IndexerLookupRequest implements Runnable , Closeable {
         while (isRuntime) {
             try {
                 IndexerLookupEntry request = works.take();
-
-                Indexer.SearchResult result;
-                if (request.docIds == null) {
-                    result = engine.idxManagers.get(shard).get(request.IndexName).Lookup(request.tokens, request.labels, null, request.countDocsOnly);
-                } else {
-                    result = engine.idxManagers.get(shard).get(request.IndexName).Lookup(request.tokens, request.labels, request.docIds, request.countDocsOnly);
+                Indexer.SearchResult result = null;
+                SimpleFieldInfo field = request.field;
+                if(field != null) {
+                    switch (field.FieldType){
+                        case IDX_TYPE_STRING:
+                            //字符型索引[全词匹配] 不处理
+                            break;
+                        case IDX_TYPE_STRING_SEG:
+                            //字符型索引[切词匹配，全文索引,hash存储倒排]
+                            if (request.docIds == null) {
+                                result = engine.idxManagers.get(shard).get(request.IndexName).Lookup(field, request.tokens, request.labels, null, request.countDocsOnly);
+                            } else {
+                                result = engine.idxManagers.get(shard).get(request.IndexName).Lookup(field, request.tokens, request.labels, request.docIds, request.countDocsOnly);
+                            }
+                            break;
+                        case IDX_TYPE_STRING_LIST:
+                            //字符型索引[列表类型，分号切词，直接切分,hash存储倒排]
+                            break;
+                        case IDX_TYPE_STRING_SINGLE:
+                            //字符型索引[单字切词] 不处理
+                            break;
+                        case IDX_TYPE_NUMBER:
+                            //数字型索引，只支持整数，数字型索引只建立正排 不处理
+                        case IDX_TYPE_DATE:
+                            //日期型索引 '2015-11-11 00:11:12'，日期型只建立正排，转成时间戳存储 不处理
+                            return;
+                    }
                 }
+
+
                 if(result == null) {
                     request.rankerReturnRequest.addRankerReturn(new RankerReturnEntry());
                     continue;

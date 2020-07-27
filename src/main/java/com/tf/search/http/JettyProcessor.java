@@ -1,8 +1,10 @@
 package com.tf.search.http;
 
 import com.tf.search.engine.Engine;
+import com.tf.search.types.IdxType;
 import com.tf.search.types.SearchRequest;
 import com.tf.search.types.SearchResponse;
+import com.tf.search.types.SimpleFieldInfo;
 
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
@@ -30,7 +32,7 @@ public class JettyProcessor extends HttpServlet {
         String index =req.getParameter("index");
         String q =req.getParameter("q");
 
-        SearchResponse output = engine.Search(new SearchRequest(index,q));
+        SearchResponse output = engine.Search(new SearchRequest(index,new SimpleFieldInfo("Content", IdxType.IDX_TYPE_STRING_SEG),q));
 
         PrintWriter writer = resp.getWriter();
 

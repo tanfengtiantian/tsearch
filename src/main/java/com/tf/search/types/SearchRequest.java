@@ -7,6 +7,8 @@ public class SearchRequest {
     //索引名称
     public String IndexName;
 
+    public SimpleFieldInfo field;
+
     // 搜索的短语（必须是UTF-8格式），会被分词
     // 当值为空字符串时关键词会从下面的Tokens读入
     public String Text;
@@ -34,8 +36,9 @@ public class SearchRequest {
     // 对返回文档很多的情况打开此选项可以有效节省时间
     public boolean Orderless;
 
-    public SearchRequest(String IndexName, String text) {
+    public SearchRequest(String IndexName, SimpleFieldInfo field, String text) {
         this.IndexName = IndexName;
+        this.field = field;
         this.Text = text;
     }
 

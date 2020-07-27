@@ -187,10 +187,11 @@ public class Engine {
                 switch (info.FieldType){
                     case IDX_TYPE_STRING:
                        //字符型索引[全词匹配] 不处理
+                        IndexSegmenterDocument(indexName, info, docId.getAndIncrement(), new DocumentIndexData(String.valueOf(value)),false,false);
                         break;
                     case IDX_TYPE_STRING_SEG:
                         //字符型索引[切词匹配，全文索引,hash存储倒排]
-                        IndexDocument(indexName, docId.getAndIncrement(), new DocumentIndexData(String.valueOf(value)),false);
+                        IndexSegmenterDocument(indexName, info, docId.getAndIncrement(), new DocumentIndexData(String.valueOf(value)),false,true);
                         break;
                     case IDX_TYPE_STRING_LIST:
                         //字符型索引[列表类型，分号切词，直接切分,hash存储倒排]
@@ -204,18 +205,25 @@ public class Engine {
                         //日期型索引 '2015-11-11 00:11:12'，日期型只建立正排，转成时间戳存储 不处理
                         return;
                 }
-
             }
         });
     }
 
-    public void IndexDocument(String indexName, Long docId, DocumentIndexData data, boolean forceUpdate) {
+    /**
+     * 默认添加分词任务
+     * @param indexName
+     * @param field
+     * @param docId
+     * @param data
+     * @param forceUpdate
+     */
+    public void IndexSegmenterDocument(String indexName, SimpleFieldInfo field, Long docId, DocumentIndexData data, boolean forceUpdate,boolean Segmenter) {
         boolean ok = checkIndexMap(indexName);
         if(ok) return;
 
         // 分词器通道 ->	NumSegmenterThreads 分词线程数   segmenterWorker 工作线程
         // 构建索引器和排序器
-        internalIndexDocument(indexName,docId, data, forceUpdate);
+        internalIndexDocument(indexName, field, docId, data, forceUpdate,Segmenter);
         int hash =  (String.valueOf(docId).hashCode() & Integer.MAX_VALUE) % initOptions.PersistentStorageShards;
         if (initOptions.UsePersistentStorage && docId != 0) {
             //写入文件
@@ -223,7 +231,7 @@ public class Engine {
         }
     }
 
-    private void internalIndexDocument(String indexName, Long docId, DocumentIndexData data, boolean forceUpdate) {
+    private void internalIndexDocument(String indexName, SimpleFieldInfo field, Long docId, DocumentIndexData data, boolean forceUpdate, boolean segmenter) {
         if (!initialized) {
             System.err.println("必须先初始化引擎");
             return;
@@ -237,8 +245,9 @@ public class Engine {
         }
 
         int hash = (docId + data.Content).hashCode() & Integer.MAX_VALUE;
-        //注册任务
-        segmenterChannel.registerWork(new SegmenterEntry(indexName,docId,hash,data,forceUpdate));
+        if(segmenter) segmenterChannel.registerWork(new SegmenterEntry(indexName,field,docId,hash,data,forceUpdate));
+        else segmenterChannel.registerNoSegmenterWork(new SegmenterEntry(indexName,field,docId,hash,data,forceUpdate));
+
     }
 
     // 阻塞等待直到所有索引添加完毕
@@ -255,7 +264,7 @@ public class Engine {
         }
 
         // 强制更新，保证其为最后的请求
-        internalIndexDocument("",0L, new DocumentIndexData(""), true);
+        internalIndexDocument("",null,0L, new DocumentIndexData(""), true,true);
 
         for(;;) {
             // 让出当前cpu时间片给其他线程
@@ -267,11 +276,21 @@ public class Engine {
         }
         System.out.println("indexer cache force");
 
-        idxManagers.get(0).values().forEach(index-> index.tableLock.table.forEach((k, v)-> System.out.println("shard0--"+k+"--"+v.docIds)));
-        idxManagers.get(1).values().forEach(index-> index.tableLock.table.forEach((k, v)-> System.out.println("shard0--"+k+"--"+v.docIds)));
 
-        //indexers.get(0).tableLock.table.forEach((k,v)-> System.out.println("shard0--"+k+"--"+v.docIds));
-        //indexers.get(1).tableLock.table.forEach((k,v)-> System.out.println("shard1--"+k+"--"+v.docIds));
+        idxManagers.get(0).values().forEach(index-> index.f_tableLock.forEach((k,v)->{
+            System.out.println("FieldName: " +k);
+            v.table.forEach((t,key)->{
+                System.out.println("shard0--"+t+"--"+key.docIds);
+            });
+        }));
+
+        idxManagers.get(1).values().forEach(index-> index.f_tableLock.forEach((k,v)->{
+            System.out.println("FieldName: " +k);
+            v.table.forEach((t,key)->{
+                System.out.println("shard1--"+t+"--"+key.docIds);
+            });
+        }));
+
     }
 
     // 查找满足搜索条件的文档，此函数线程安全
@@ -315,6 +334,7 @@ public class Engine {
         // 生成查找请求
         IndexerLookupEntry lookupRequest = new IndexerLookupEntry();
         lookupRequest.IndexName = request.IndexName;
+        lookupRequest.field = request.field;
         lookupRequest.countDocsOnly = request.CountDocsOnly;
         lookupRequest.tokens = tokens;
         lookupRequest.labels = request.Labels;
@@ -389,7 +409,8 @@ public class Engine {
      * @return
      */
     public int getShard(int hash) {
-        return hash - hash/initOptions.NumShards * initOptions.NumShards;
+        return 0;
+        //return hash - hash/initOptions.NumShards * initOptions.NumShards;
     }
 
 }

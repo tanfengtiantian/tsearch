@@ -6,14 +6,10 @@ import com.tf.search.engine.indexerworker.entry.IndexerAddEntry;
 import com.tf.search.engine.rankerworker.entry.RankerAddEntry;
 import com.tf.search.engine.segment.entry.SegmenterEntry;
 import com.tf.search.types.DocumentIndex;
-import com.tf.search.types.DocumentIndexData;
 import com.tf.search.utils.Utils;
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -45,7 +41,7 @@ public class SegmenterRequest {
     }
 
     /**
-     * 注册任务
+     * 分词注册任务
      * @param request
      * @throws InterruptedException
      */
@@ -57,6 +53,43 @@ public class SegmenterRequest {
             e.printStackTrace();
         }
     }
+
+
+    /**
+     * 不分词注册任务
+     * @param request
+     * @throws InterruptedException
+     */
+    public void registerNoSegmenterWork(SegmenterEntry request) {
+        //hash 分词后 发送 索引存储
+        int shard = engine.getShard(request.hash);
+        // 构建索引
+        IndexerAddEntry indexerRequest = new IndexerAddEntry(request.IndexName,request.field,
+                new DocumentIndex(request.docId, 0f,new ArrayList<>())
+                ,request.forceUpdate
+        );
+
+        indexerRequest.document.Keywords.add(new DocumentIndex.KeywordIndex(
+                request.data.Content,
+                // 非分词标注的词频设置为0，不参与tf-idf计算
+                 0f,
+                Arrays.asList(0)
+        ));
+
+        // 加入索引通道
+        engine.indexerAddDocChannels.get(shard).addWork(indexerRequest);
+
+        // 加入排序通道
+        RankerAddEntry rankerRequest = new RankerAddEntry();
+        rankerRequest.IndexName = request.IndexName;
+        rankerRequest.docId = request.docId;
+        rankerRequest.fields = request.data.Fields;
+        engine.rankerAddDocChannels.get(shard).addWork(rankerRequest);
+
+    }
+
+
+
 
     public void singleRegisterWork(SegmenterEntry request) {
         try {
@@ -132,7 +165,7 @@ public class SegmenterRequest {
                     });
 
                     // 构建索引
-                    IndexerAddEntry indexerRequest = new IndexerAddEntry(request.IndexName,
+                    IndexerAddEntry indexerRequest = new IndexerAddEntry(request.IndexName,request.field,
                             new DocumentIndex(request.docId, (float) numTokens,new ArrayList<>(tokensMap.size()))
                             ,request.forceUpdate
                     );

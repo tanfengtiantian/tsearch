@@ -2,6 +2,7 @@ package com.tf.search.engine.indexerworker;
 
 import com.tf.search.engine.Engine;
 import com.tf.search.engine.indexerworker.entry.IndexerAddEntry;
+import com.tf.search.types.IdxType;
 import com.tf.search.utils.Utils;
 import java.io.Closeable;
 import java.io.IOException;
@@ -50,11 +51,10 @@ public class IndexerAddDocumentRequest implements Runnable , Closeable {
                 // 强制保存
                 if(request.document==null && request.indexName ==null) {
                     engine.idxManagers.get(shard).values().forEach(v->{
-                        v.AddDocumentToCache(request.document, request.forceUpdate);
+                        v.AddDocumentToCache(request.field, request.document, request.forceUpdate);
                     });
                 }else{
-                    engine.idxManagers.get(shard).get(request.indexName).AddDocumentToCache(request.document, request.forceUpdate);
-
+                    engine.idxManagers.get(shard).get(request.indexName).AddDocumentToCache(request.field, request.document, request.forceUpdate);
                 }
                 //engine.indexers.get(shard).AddDocumentToCache(request.document, request.forceUpdate);
                 // 计数器新增
