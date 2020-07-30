@@ -12,3 +12,4 @@ http://localhost:8888/_create?index=xinwen
         }
    ]
 }
+master
