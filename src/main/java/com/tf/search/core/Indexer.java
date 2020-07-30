@@ -313,8 +313,12 @@ public class Indexer {
             if (table.length == 0) {
                 return null;
             }
-            //最大文档排序
-            Arrays.sort(table, (t1, t2) -> t2.docIds.size() - t1.docIds.size());
+            // 最大文档排序
+            //Arrays.sort(table, (t1, t2) -> t2.docIds.size() - t1.docIds.size());
+
+            // 最小文档排序
+            // 需要把它们用AND的关系合并，得出posting list的交集。首先选择最短的posting list，然后从小到大遍历。
+            Arrays.sort(table, Comparator.comparingInt(t -> t.docIds.size()));
 
             // 归并查找各个搜索键出现文档的交集
             // 从后向前查保证先输出DocId较大文档

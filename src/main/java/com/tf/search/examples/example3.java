@@ -8,6 +8,7 @@ import com.tf.search.types.EngineInitOptions;
 import com.tf.search.types.SearchRequest;
 
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 
 public class example3 {
 

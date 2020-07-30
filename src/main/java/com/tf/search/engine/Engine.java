@@ -180,18 +180,19 @@ public class Engine {
 
     public void IndexInsertOrUpdate(String indexName, Map<String,Object> document) {
         Map<String,SimpleFieldInfo> fieldInfos = indexFields.get(indexName);
-        AtomicLong docId = indexDocids.get(indexName);
+        //doc 自增
+        long docId = indexDocids.get(indexName).getAndIncrement();
         document.forEach((field,value) -> {
-            SimpleFieldInfo info = fieldInfos.get(field);
-            if(info != null) {
-                switch (info.FieldType){
+            SimpleFieldInfo fieldInfo = fieldInfos.get(field);
+            if(fieldInfo != null) {
+                switch (fieldInfo.FieldType){
                     case IDX_TYPE_STRING:
                        //字符型索引[全词匹配] 不处理
-                        IndexSegmenterDocument(indexName, info, docId.getAndIncrement(), new DocumentIndexData(String.valueOf(value)),false,false);
+                        IndexSegmenterDocument(indexName, fieldInfo, docId, new DocumentIndexData(String.valueOf(value)),false,false);
                         break;
                     case IDX_TYPE_STRING_SEG:
                         //字符型索引[切词匹配，全文索引,hash存储倒排]
-                        IndexSegmenterDocument(indexName, info, docId.getAndIncrement(), new DocumentIndexData(String.valueOf(value)),false,true);
+                        IndexSegmenterDocument(indexName, fieldInfo, docId, new DocumentIndexData(String.valueOf(value)),false,true);
                         break;
                     case IDX_TYPE_STRING_LIST:
                         //字符型索引[列表类型，分号切词，直接切分,hash存储倒排]

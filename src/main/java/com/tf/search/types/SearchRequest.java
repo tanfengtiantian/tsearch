@@ -9,6 +9,8 @@ public class SearchRequest {
 
     public SimpleFieldInfo field;
 
+    public Map<SimpleFieldInfo,Object> fields;
+
     // 搜索的短语（必须是UTF-8格式），会被分词
     // 当值为空字符串时关键词会从下面的Tokens读入
     public String Text;
