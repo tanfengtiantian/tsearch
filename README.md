@@ -12,3 +12,5 @@ http://localhost:8888/_create?index=xinwen
         }
    ]
 }
+
+fst 修正
