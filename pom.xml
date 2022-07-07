@@ -15,7 +15,7 @@
 		<timestamp>${maven.build.timestamp}</timestamp>
         <maven.build.timestamp.format>yyyyMMddHHmm</maven.build.timestamp.format>
 		<slf4j.version>1.7.5</slf4j.version>
-		<jetty.version>9.4.19.v20190610</jetty.version>
+		<jetty.version>10.0.10</jetty.version>
 		<commons-cli.version>1.2</commons-cli.version>
 		<fastjson.version>1.2.61</fastjson.version>
 		<vertx.version>3.9.1</vertx.version>
